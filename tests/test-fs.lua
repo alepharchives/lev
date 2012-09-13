@@ -24,7 +24,7 @@ exports['fs_sync_test'] = function(test)
   local err, fd
   local is_exists
 
-  err, fd = fs.open('LICENSE.txt', 'r', tonumber('666', 8))
+  err, fd = fs.open('tests/data/fs_sync_open.txt', 'r', tonumber('666', 8))
   test.is_nil(err)
   test.ok(fd)
   err = fs.close(fd)
@@ -56,12 +56,13 @@ exports['fs_async_test'] = function(test)
   local lev = require('lev')
   local fs = lev.fs
 
-  fs.open('LICENSE.txt', 'r', tonumber('666', 8), function(err, fd)
+  fs.open('tests/data/fs_async_open.txt', 'r',
+      tonumber('666', 8), function(err, fd)
     test.is_nil(err)
     test.ok(fd)
     fs.close(fd, function(err)
       test.is_nil(err)
-      fs.open('non_existing_file', 'r', tonumber('666', 8), function(err, fd)
+      fs.open('non_existing_file_for_async', 'r', tonumber('666', 8), function(err, fd)
         test.equal(err.code, 34 --[[ENOENT]])
         test.is_nil(fd)
 
