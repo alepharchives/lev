@@ -95,8 +95,13 @@ static uv_buf_t on_alloc(uv_handle_t* handle, size_t suggested_size) {
 
 static void on_connect(uv_connect_t* req, int status) {
   UNWRAP(req->handle);
+  lev_handle_unref(L, (LevRefStruct_t*)self);
   push_callback(L, self, "on_connect");
-  lua_pushinteger(L, status);
+  if (!status) {
+    lua_pushnil(L);
+  } else {
+    lua_pushinteger(L, status);
+  }
   lua_call(L, 2, 0);/*, -4*/
 }
 
@@ -104,7 +109,11 @@ static void on_connect(uv_connect_t* req, int status) {
 static void on_connection(uv_stream_t* handle, int status) {
   UNWRAP(handle);
   push_callback(L, self, "on_connection");
-  lua_pushinteger(L, status);
+  if (!status) {
+    lua_pushnil(L);
+  } else {
+    lua_pushinteger(L, status);
+  }
   lua_call(L, 2, 0);/*, -4*/
 }
 
@@ -132,12 +141,19 @@ static void on_read(uv_stream_t* handle, ssize_t nread, uv_buf_t buf) {
 static int tcp_new(lua_State* L) {
   uv_loop_t* loop;
   tcp_obj* self;
+  int use_this_fd;
+
+  use_this_fd = lua_tointeger(L, 1);
 
   loop = uv_default_loop();
   assert(L == loop->data);
 
   self = (tcp_obj*)create_obj_init_ref(L, sizeof *self, "lev.tcp");
   uv_tcp_init(loop, &self->handle);
+
+  if (use_this_fd) {
+    self->handle.fd = use_this_fd;
+  }
 
   return 1;
 }
@@ -155,8 +171,11 @@ static int tcp_accept(lua_State* L) {
 
   r = uv_accept((uv_stream_t*)&self->handle,
                 (uv_stream_t*)&obj->handle);
-  lua_pushinteger(L, r);
-
+  if (!r) {
+    lua_pushnil(L);
+  } else {
+    lua_pushinteger(L, r);
+  }
   return 2;
 }
 
@@ -175,7 +194,11 @@ static int tcp_bind(lua_State* L) {
   addr = uv_ip4_addr(host, port);
 
   r = uv_tcp_bind(&self->handle, addr);
-  lua_pushinteger(L, r);
+  if (!r) {
+    lua_pushnil(L);
+  } else {
+    lua_pushinteger(L, r);
+  }
   lev_handle_ref(L, (LevRefStruct_t*)self, 1);
 
   return 1;
@@ -197,7 +220,12 @@ static int tcp_connect(lua_State* L) {
   addr = uv_ip4_addr(host, port);
 
   r = uv_tcp_connect(&self->connect_req, &self->handle, addr, on_connect);
-  lua_pushinteger(L, r);
+  if (!r) {
+    lua_pushnil(L);
+  } else {
+    lua_pushinteger(L, r);
+  }
+  lev_handle_ref(L, (LevRefStruct_t*)self, 1);
 
   return 1;
 }
@@ -216,6 +244,24 @@ static int tcp_close(lua_State* L) {
   return 0;
 }
 
+static int tcp_fd_get(lua_State* L) {
+  tcp_obj* self;
+
+  self = luaL_checkudata(L, 1, "lev.tcp");
+
+  lua_pushinteger(L, self->handle.fd);
+  return 1;
+}
+
+static int tcp_fd_set(lua_State* L) {
+  tcp_obj* self;
+
+  self = luaL_checkudata(L, 1, "lev.tcp");
+
+  self->handle.fd = luaL_checkint(L, 2);
+
+  return 0;
+}
 
 static int tcp_listen(lua_State* L) {
   tcp_obj* self;
@@ -224,17 +270,19 @@ static int tcp_listen(lua_State* L) {
 
   self = luaL_checkudata(L, 1, "lev.tcp");
 
-  if (lua_isnumber(L, 2)) {
-    backlog = luaL_checkinteger(L, 2);
-    set_callback(L, "on_connection", 3);
-  }
-  else {
+  set_callback(L, "on_connection", 2);
+
+  backlog = lua_tointeger(L, 3);
+  if (!backlog) {
     backlog = 128;
-    set_callback(L, "on_connection", 2);
   }
 
   r = uv_listen((uv_stream_t*)&self->handle, backlog, on_connection);
-  lua_pushinteger(L, r);
+  if (!r) {
+    lua_pushnil(L);
+  } else {
+    lua_pushinteger(L, r);
+  }
 
   lev_handle_ref(L, (LevRefStruct_t*)self, 1);
 
@@ -255,7 +303,11 @@ static int tcp_read_start(lua_State* L) {
   set_callback(L, "on_read", 2);
 
   r = uv_read_start((uv_stream_t*)&self->handle, on_alloc, on_read);
-  lua_pushinteger(L, r);
+  if (!r) {
+    lua_pushnil(L);
+  } else {
+    lua_pushinteger(L, r);
+  }
 
   lev_handle_ref(L, (LevRefStruct_t*)self, 1);
 
@@ -270,7 +322,11 @@ static int tcp_read_stop(lua_State* L) {
   self = luaL_checkudata(L, 1, "lev.tcp");
 
   r = uv_read_stop((uv_stream_t*)&self->handle);
-  lua_pushinteger(L, r);
+  if (!r) {
+    lua_pushnil(L);
+  } else {
+    lua_pushinteger(L, r);
+  }
 
   if (r == 0)
     clear_callback(L, "on_read", self);
@@ -306,6 +362,17 @@ static int tcp_write(lua_State* L) {
   return 0;
 }
 
+static int tcp_nodelay(lua_State* L) {
+  tcp_obj* self;
+
+  self = luaL_checkudata(L, 1, "lev.tcp");
+
+  uv_tcp_nodelay((uv_tcp_t*)&self->handle, luaL_checkint(L, 2));
+
+  return 0;
+}
+
+
 
 static luaL_reg methods[] = {
    { "accept",     tcp_accept      }
@@ -317,6 +384,9 @@ static luaL_reg methods[] = {
   ,{ "read_start", tcp_read_start  }
   ,{ "read_stop",  tcp_read_stop   }
   ,{ "write",      tcp_write       }
+  ,{ "fd_get",     tcp_fd_get      }
+  ,{ "fd_set",     tcp_fd_set      }
+  ,{ "nodelay",    tcp_nodelay     }
   ,{ NULL,         NULL            }
 };
 

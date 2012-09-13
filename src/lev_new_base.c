@@ -101,13 +101,16 @@ void push_object(lua_State* L, void* object) {
   /* STACK: <object> */
 }
 
-int push_callback(lua_State* L, void* object, const char* name) {
+int _push_callback(lua_State* L, void* object, const char* name, int pop_object) {
 
   push_object(L, object);
 
   /* Get the callback table. */
   lua_getfenv(L, -1);
-
+/*
+  printf("push_callback: %s (%d)\n", name, lua_type(L, (-1)) );
+  luv_lua_debug_stackdump(L, "push_callback");
+*/
   assert(lua_istable(L, -1));
 
   /* Look up callback. */
@@ -123,9 +126,14 @@ int push_callback(lua_State* L, void* object, const char* name) {
   /* STACK: <object> <callback> */
 
   /* STACK: <object> <callback> */
-  lua_pushvalue(L, -2);
-  lua_remove(L, -3);
+  lua_insert(L, -2);
   /* STACK: <callback> <object> */
+
+  if (pop_object) {
+    lua_pop(L, 1);
+    /* STACK: <callback> */
+  }
+
   return 1; /* OK */
 }
 
@@ -178,6 +186,26 @@ void lev_handle_unref(lua_State* L, LevRefStruct_t* lhandle) {
     lhandle->ref = LUA_NOREF;
     /*printf("handle_unref\t lhandle=%p handle=%p\n", lhandle, &lhandle->handle);*/
   }
+}
+
+/*
+ * Error helper functions.
+ */
+
+void lev_push_uv_err(lua_State *L, uv_err_t err) {
+  lua_createtable(L, 0, 2);
+
+  lua_pushstring(L, uv_strerror(err));
+  lua_setfield(L, -2, "message");
+
+  lua_pushnumber(L, err.code);
+  lua_setfield(L, -2, "code");
+}
+
+uv_err_t lev_code_to_uv_err(uv_err_code errcode) {
+  uv_err_t err;
+  err.code = errcode;
+  return err;
 }
 
 #ifdef WIN32
