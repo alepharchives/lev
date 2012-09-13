@@ -22,7 +22,7 @@ exports['fs_fsync'] = function(test)
   local lev = require('lev')
   local fs = lev.fs
 
-  local path = '_test_tmp1.txt'
+  local path = '_test_fsync_tmp1.txt'
   fs.open(path, 'a', tonumber('666', 8), function(err, fd)
     test.is_nil(err)
 

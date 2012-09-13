@@ -22,8 +22,8 @@ exports['fs_link'] = function(test)
   local lev = require('lev')
   local fs = lev.fs
 
-  local path1 = '_test_tmp1.txt'
-  local path2 = '_test_tmp2.txt'
+  local path1 = '_test_link_tmp1.txt'
+  local path2 = '_test_link_tmp2.txt'
 
   fs.unlink(path1)
   fs.unlink(path2)
