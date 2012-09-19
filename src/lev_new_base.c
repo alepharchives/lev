@@ -320,7 +320,6 @@ __declspec(dllexport)
 int luaopen_levbase(lua_State *L) {
   luaL_reg functions[] = {{NULL, NULL}};
 
-  lev_get_loop(L)->data = L;
   create_object_registry(L);
 
   lev_slab_fill();

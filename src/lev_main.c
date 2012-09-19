@@ -41,6 +41,7 @@
 #include "uv.h"
 #include "luv_debug.h"
 #include "lhttp_parser.h"
+#include "cares.h"
 /* X:E lev */
 
 #if LJ_TARGET_POSIX
@@ -562,6 +563,7 @@ static int handle_luainit(lua_State *L, uv_loop_t* loop) {
 
   /* Store the loop within the registry */
   lev_set_loop(L, loop);
+  lev_get_loop(L)->data = L;
 
   /* Pull up the preload table */
   lua_getglobal(L, "package");

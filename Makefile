@@ -98,6 +98,7 @@ CPPFLAGS += -I${SSLDIR}/openssl-configs/ia32
 endif
 
 LEVLIBS=                               \
+        ${BUILDDIR}/cares.o            \
         ${BUILDDIR}/lev_slab.o         \
         ${BUILDDIR}/lev_mpack.o        \
         ${BUILDDIR}/luv_debug.o        \
