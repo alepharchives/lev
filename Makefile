@@ -11,6 +11,7 @@ HTTP_VERSION=$(shell git --git-dir ${HTTPDIR}/.git describe --tags)
 ZLIBDIR=deps/zlib
 SSLDIR=deps/openssl
 CARESDIR=deps/c-ares
+CARES_VERSION=$(shell git --git-dir ${CARESDIR}/.git describe --tags)
 BUILDDIR=build
 CRYPTODIR=deps/luacrypto
 
@@ -52,6 +53,7 @@ LIBS += -llev \
 	${ZLIBDIR}/libz.a \
 	${YAJLDIR}/yajl.a \
 	${UVDIR}/uv.a \
+	${CARESDIR}/.libs/libcares.a \
 	${LUADIR}/src/libluajit.a \
 	-lm -ldl -lpthread
 ifeq (${USE_SYSTEM_SSL},1)
@@ -118,6 +120,7 @@ LEVLIBS=                               \
 DEPS=${LUADIR}/src/libluajit.a \
      ${YAJLDIR}/yajl.a         \
      ${UVDIR}/uv.a             \
+     ${CARESDIR}/.libs/libcares.a \
      ${ZLIBDIR}/libz.a         \
      ${HTTPDIR}/http_parser.o
 
@@ -182,18 +185,19 @@ ${CARESDIR}/configure: ${CARESDIR}/buildconf
 ${CARESDIR}/Makefile: ${CARESDIR}/configure
 	cd ${CARESDIR} && ./configure
 
-${CARESDIR}/.lib/libcares.a: ${CARESDIR}/Makefile
+${CARESDIR}/.libs/libcares.a: ${CARESDIR}/Makefile
 	cd ${CARESDIR} && make
 
 ${BUILDDIR}/%.o: src/%.c ${DEPS}
 	mkdir -p ${BUILDDIR}
 	$(CC) ${CPPFLAGS} ${CFLAGS} --std=c99 -D_GNU_SOURCE -g -Wall -Werror -c $< -o $@ \
 		-I${HTTPDIR} -I${UVDIR}/include -I${LUADIR}/src -I${YAJLDIR}/src/api \
-		-I${YAJLDIR}/src -I${ZLIBDIR} -I${CRYPTODIR}/src \
+		-I${YAJLDIR}/src -I${ZLIBDIR} -I${CRYPTODIR}/src -I${CARESDIR} \
 		-D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 \
 		-DUSE_SYSTEM_SSL=${USE_SYSTEM_SSL} \
 		-DHTTP_VERSION=\"${HTTP_VERSION}\" \
 		-DUV_VERSION=\"${UV_VERSION}\" \
+		-DCARES_VERSION=\"${CARES_VERSION}\" \
 		-DYAJL_VERSIONISH=\"${YAJL_VERSION}\" \
 		-DLEV_VERSION=\"${VERSION}\" \
 		-DLUAJIT_VERSION=\"${LUAJIT_VERSION}\"
@@ -202,11 +206,12 @@ ${BUILDDIR}/%.pre: src/%.c ${DEPS}
 	mkdir -p ${BUILDDIR}
 	$(CC) ${CPPFLAGS} ${CFLAGS} --std=c99 -D_GNU_SOURCE -g -Wall -Werror -E $< \
 		-I${HTTPDIR} -I${UVDIR}/include -I${LUADIR}/src -I${YAJLDIR}/src/api \
-		-I${YAJLDIR}/src -I${ZLIBDIR} -I${CRYPTODIR}/src \
+		-I${YAJLDIR}/src -I${ZLIBDIR} -I${CRYPTODIR}/src -I${CARESDIR} \
 		-D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 \
 		-DUSE_SYSTEM_SSL=${USE_SYSTEM_SSL} \
 		-DHTTP_VERSION=\"${HTTP_VERSION}\" \
 		-DUV_VERSION=\"${UV_VERSION}\" \
+		-DCARES_VERSION=\"${CARES_VERSION}\" \
 		-DYAJL_VERSIONISH=\"${YAJL_VERSION}\" \
 		-DLEV_VERSION=\"${VERSION}\" \
 		-DLUAJIT_VERSION=\"${LUAJIT_VERSION}\" \
@@ -232,6 +237,7 @@ clean:
 	${MAKE} -C ${HTTPDIR} clean
 	${MAKE} -C ${YAJLDIR} clean
 	${MAKE} -C ${UVDIR} distclean
+	${MAKE} -C ${CARESDIR} distclean
 	-rm ${ZLIBDIR}/*.o
 	-rm ${CRYPTODIR}/src/lcrypto.o
 	rm -rf build bundle
@@ -251,6 +257,8 @@ install: all
 	cp ${HTTPDIR}/http_parser.h ${INCDIR}/http_parser/
 	mkdir -p ${INCDIR}/uv
 	cp -r ${UVDIR}/include/* ${INCDIR}/uv/
+	mkdir -p ${INCDIR}/c-ares
+	cp ${CARESDIR}/*.h ${INCDIR}/c-ares/
 	cp src/*.h ${INCDIR}/
 
 uninstall:
@@ -262,8 +270,8 @@ bundle: bundle/lev
 
 bundle/lev: build/lev ${BUILDDIR}/liblev.a
 	build/lev tools/bundler.lua
-	$(CC) --std=c99 -D_GNU_SOURCE -g -Wall -Werror -DBUNDLE -c src/lev_exports.c -o bundle/lev_exports.o -I${HTTPDIR} -I${UVDIR}/include -I${LUADIR}/src -I${YAJLDIR}/src/api -I${YAJLDIR}/src -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHTTP_VERSION=\"${HTTP_VERSION}\" -DUV_VERSION=\"${UV_VERSION}\" -DYAJL_VERSIONISH=\"${YAJL_VERSION}\" -DLEV_VERSION=\"${VERSION}\" -DLUAJIT_VERSION=\"${LUAJIT_VERSION}\"
-	$(CC) --std=c99 -D_GNU_SOURCE -g -Wall -Werror -DBUNDLE -c src/lev_main.c -o bundle/lev_main.o -I${HTTPDIR} -I${UVDIR}/include -I${LUADIR}/src -I${YAJLDIR}/src/api -I${YAJLDIR}/src -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHTTP_VERSION=\"${HTTP_VERSION}\" -DUV_VERSION=\"${UV_VERSION}\" -DYAJL_VERSIONISH=\"${YAJL_VERSION}\" -DLEV_VERSION=\"${VERSION}\" -DLUAJIT_VERSION=\"${LUAJIT_VERSION}\"
+	$(CC) --std=c99 -D_GNU_SOURCE -g -Wall -Werror -DBUNDLE -c src/lev_exports.c -o bundle/lev_exports.o -I${HTTPDIR} -I${UVDIR}/include -I${CARESDIR} -I${LUADIR}/src -I${YAJLDIR}/src/api -I${YAJLDIR}/src -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHTTP_VERSION=\"${HTTP_VERSION}\" -DUV_VERSION=\"${UV_VERSION}\" -DCARES_VERSION=\"${CARES_VERSION}\" -DYAJL_VERSIONISH=\"${YAJL_VERSION}\" -DLEV_VERSION=\"${VERSION}\" -DLUAJIT_VERSION=\"${LUAJIT_VERSION}\"
+	$(CC) --std=c99 -D_GNU_SOURCE -g -Wall -Werror -DBUNDLE -c src/lev_main.c -o bundle/lev_main.o -I${HTTPDIR} -I${UVDIR}/include -I${CARESDIR} -I${LUADIR}/src -I${YAJLDIR}/src/api -I${YAJLDIR}/src -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -DHTTP_VERSION=\"${HTTP_VERSION}\" -DUV_VERSION=\"${UV_VERSION}\" -DCARES_VERSION=\"${CARES_VERSION}\" -DYAJL_VERSIONISH=\"${YAJL_VERSION}\" -DLEV_VERSION=\"${VERSION}\" -DLUAJIT_VERSION=\"${LUAJIT_VERSION}\"
 	$(CC) ${LDFLAGS} -g -o bundle/lev ${BUILDDIR}/liblev.a `ls bundle/*.o` ${LIBS} ${CRYPTODIR}/src/lcrypto.o
 
 # Test section
@@ -300,11 +308,13 @@ dist_build:
 	sed -e 's/^VERSION=.*/VERSION=${VERSION}/' \
             -e 's/^LUAJIT_VERSION=.*/LUAJIT_VERSION=${LUAJIT_VERSION}/' \
             -e 's/^UV_VERSION=.*/UV_VERSION=${UV_VERSION}/' \
+            -e 's/^CARES_VERSION=.*/CARES_VERSION=${CARES_VERSION}/' \
             -e 's/^HTTP_VERSION=.*/HTTP_VERSION=${HTTP_VERSION}/' \
             -e 's/^YAJL_VERSION=.*/YAJL_VERSION=${YAJL_VERSION}/' < Makefile > Makefile.dist
 	sed -e 's/LEV_VERSION=".*/LEV_VERSION=\"${VERSION}\"'\'',/' \
             -e 's/LUAJIT_VERSION=".*/LUAJIT_VERSION=\"${LUAJIT_VERSION}\"'\'',/' \
             -e 's/UV_VERSION=".*/UV_VERSION=\"${UV_VERSION}\"'\'',/' \
+            -e 's/^CARES_VERSION=.*/CARES_VERSION=${CARES_VERSION}/' \
             -e 's/HTTP_VERSION=".*/HTTP_VERSION=\"${HTTP_VERSION}\"'\'',/' \
             -e 's/YAJL_VERSIONISH=".*/YAJL_VERSIONISH=\"${YAJL_VERSION}\"'\'',/' < lev.gyp > lev.gyp.dist
 
