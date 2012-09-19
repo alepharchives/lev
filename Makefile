@@ -10,6 +10,7 @@ HTTPDIR=deps/http-parser
 HTTP_VERSION=$(shell git --git-dir ${HTTPDIR}/.git describe --tags)
 ZLIBDIR=deps/zlib
 SSLDIR=deps/openssl
+CARESDIR=deps/c-ares
 BUILDDIR=build
 CRYPTODIR=deps/luacrypto
 
@@ -171,6 +172,18 @@ ${SSLDIR}/Makefile.openssl:
 
 ${SSLDIR}/libopenssl.a: ${SSLDIR}/Makefile.openssl
 	$(MAKE) -C ${SSLDIR} -f Makefile.openssl
+
+${CARESDIR}/buildconf:
+	git submodule update --init ${CARESDIR}
+
+${CARESDIR}/configure: ${CARESDIR}/buildconf
+	cd ${CARESDIR} && ./buildconf
+
+${CARESDIR}/Makefile: ${CARESDIR}/configure
+	cd ${CARESDIR} && ./configure
+
+${CARESDIR}/.lib/libcares.a: ${CARESDIR}/Makefile
+	cd ${CARESDIR} && make
 
 ${BUILDDIR}/%.o: src/%.c ${DEPS}
 	mkdir -p ${BUILDDIR}

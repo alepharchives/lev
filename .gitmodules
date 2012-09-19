@@ -26,3 +26,6 @@
 	path = deps/luacrypto
 	url = http://github.com/luvit/luacrypto
   ignore = dirty
+[submodule "deps/c-ares"]
+	path = deps/c-ares
+	url = https://github.com/bagder/c-ares.git
